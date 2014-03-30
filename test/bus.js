@@ -105,6 +105,47 @@ describe("Bus Test",function(){
       busIns.fire('/1/v1/2/v2/4','v3')
       assert.equal( varStack.toString(),'v1,v2,v3')
     })
+    it('True request with variable test',function(){
+      var userId = false,testId = 1
+      busIns.on('request.get.user/:userId',function(id){
+        userId = id
+      })
+      busIns.fire('request.get.user/'+testId)
+      assert.equal( userId,testId)
+    })
+  })
 
+  describe("Test fire with mute option",function(){
+    var h1Fired = false,h2Fired = false
+    beforeEach(function(){
+      h1Fired = false
+      h2Fired = false
+    })
+    it('Muted listenner should not be fired',function(){
+      busIns.on('h',function h1(){h1Fired=true})
+      busIns.on('h',function h2(){h2Fired=true})
+      busIns.fire('h',[],{mute:'h1'})
+      assert.equal( h1Fired,false)
+      assert.equal( h2Fired,true)
+    })
+    it('listenner in the chain can be muted too',function(){
+      busIns.on('h1',function h1(){
+        h1Fired = true
+        busIns.fire('h2')
+      })
+      busIns.on('h2',function h2(){
+        h2Fired = true
+      })
+      busIns.fire('h1',[],{mute:'h2'})
+      assert.equal( h1Fired,true)
+      assert.equal( h2Fired,false)
+    })
+    it('We can mute listenner in attach',function(){
+      busIns.on('h',function h1(){h1Fired=true},{mute:'h2'})
+      busIns.on('h',function h2(){h2Fired=true})
+      busIns.fire('h',[])
+      assert.equal( h1Fired,true)
+      assert.equal( h2Fired,false)
+    })
   })
 })

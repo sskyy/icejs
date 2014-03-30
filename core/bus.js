@@ -35,6 +35,7 @@ function bus(opt){
     tarRex : /^@/
   })
 
+  this._data = {}
   this.events = {functions:[],children:{"str":{},"reg":{}}}
   this._module = 'global'
 }
@@ -45,6 +46,10 @@ function bus(opt){
  */
 bus.prototype.module = function( name ){
   return name ? (this._module=name) : this._module
+}
+
+bus.prototype.data = function(name,data){
+return data ? (this._data[name]=data) : this._data[name]
 }
 
 
@@ -62,7 +67,7 @@ bus.prototype.on = function( eventOrg, listener,opt ){
   if( eventOrg !== "" ){
     while( n = eventNs.shift() ){
       var type= n.indexOf(root.opt.varSign)==-1?"str":"reg"
-      type=="reg" && (n=n.replace(/\/:\w+\//g,"/(.*)/"))
+      type=="reg" && (n=n.replace(/(^|\/):\w+(\/|$)/g,"$1(.*)$2"))
       eventRef.children[type][n]||
       (eventRef.children[type][n] = {functions:[],children:{"str":{},"reg":{}}})
       eventRef = eventRef.children[type][n]
@@ -71,6 +76,9 @@ bus.prototype.on = function( eventOrg, listener,opt ){
 
   //standardize the listern data structure
   listener = this.standardListener( listener,opt)
+
+  //deal with mute opt
+  opt && opt.mute && root.addMute(opt.mute)
 
   var place = listener.first ? 0 :
     listener.before ? _.findIndex(eventRef.functions,function(e){return e.name==listener.before}):
@@ -82,13 +90,15 @@ bus.prototype.on = function( eventOrg, listener,opt ){
 
 }
 
-bus.prototype.fire  = function( eventOrg, args,opts ){
+bus.prototype.fire  = function( eventOrg, args,opt ){
   var root=this,
     stack = [[[],this.events]],
     variables = [],
     eventNs = eventOrg.split( this.opt.nsSplit),
     n,
-    opts = opts ||{}
+    opt = opt ||{}
+
+  root.addMute(opt.mute)
 
   if( eventOrg !== "" ){
     while( n = eventNs.shift()){
@@ -113,7 +123,7 @@ bus.prototype.fire  = function( eventOrg, args,opts ){
     }
   }
 
-  if(opts.cas){
+  if(opt.cas){
     var childStack = stack
 
     while(childStack.length){
@@ -132,7 +142,8 @@ bus.prototype.fire  = function( eventOrg, args,opts ){
 
   stack.forEach(function(b){
     b[1].functions.forEach(function(f){
-      f.function.apply( bus, b[0].concat(args===undefined?[]:args))
+      if( root.data('mute') && root.data('mute').indexOf(f.name) == -1)
+        f.function.apply( bus, b[0].concat(args===undefined?[]:args))
     })
   })
 }
@@ -160,6 +171,16 @@ bus.prototype.standardListener = function( org,opt ){
   })
 
   return res
+}
+
+bus.prototype.addMute = function( mute){
+  var root = this
+  root.data('mute') || (root.data('mute',[]))
+  mute = (!mute?[]:mute.length?[mute]:mute).map(function(m){
+    return m.indexOf(root.opt.nsSplit) == -1 ?
+      root._module+'.'+m : m
+  })
+  root.data('mute',root.data('mute').concat(mute))
 }
 
 bus.prototype.print =function(){
