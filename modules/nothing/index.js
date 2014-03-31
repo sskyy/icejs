@@ -10,11 +10,20 @@
  just like below.
 */
 
-exports.desc = {
+var Q = require('q')
+
+exports.info = {
   //deps : ['log'],
   logic : {
     "init" : nothing2log //value need to be fucntion ref
-  }
+  },
+  onStart : function(){
+    var d= Q.defer()
+    // d.([true,module.id])
+    d.resolve()
+    return d.promise
+  },
+  deps : ['doNotExist']
 }
 
 function nothing2log(){

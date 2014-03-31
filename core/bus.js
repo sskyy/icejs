@@ -139,11 +139,10 @@ bus.prototype.fire  = function( eventOrg, args,opt ){
       stack = stack.concat( childStack )
     }
   }
-
   stack.forEach(function(b){
     b[1].functions.forEach(function(f){
       if( root.data('mute') && root.data('mute').indexOf(f.name) == -1)
-        f.function.apply( bus, b[0].concat(args===undefined?[]:args))
+        f.function.apply( root, b[0].concat(args===undefined?[]:args))
     })
   })
 }

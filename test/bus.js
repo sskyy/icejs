@@ -36,6 +36,14 @@ describe("Bus Test",function(){
       assert.equal( busIns.events.children.str.fn2.functions[0].name, busIns.module()+".alias")
       assert.equal( busIns.events.children.str.fn3.functions[0].name, busIns.module()+".fn3")
     })
+    it('Bus instance should be passed as "this" to listenner',function(){
+      var outside
+      busIns.on('f',function(){
+        outside = this
+      })
+      busIns.fire('f')
+      assert.equal( busIns,outside)
+    })
   })
 
   describe("Multiple attach test",function(){

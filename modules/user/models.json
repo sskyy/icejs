@@ -1,0 +1,9 @@
+{
+  "identity": "user",
+  "connection": "localDisk",
+
+  "attributes": {
+    "first_name": "string",
+    "last_name": "string"
+  }
+}
