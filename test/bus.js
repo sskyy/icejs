@@ -12,8 +12,8 @@ describe("Bus Test",function(){
   describe("Simple attach and fire test",function(){
     it('A listenner should be attached properly',function(){
       busIns.on("ns",_.noop)
-      assert.notEqual( busIns.events.children.str.ns, undefined )
-      assert.equal( busIns.events.children.str.ns.functions[0].function,_.noop)
+      assert.notEqual( busIns.getEvents().children.str.ns, undefined )
+      assert.equal( busIns.getEvents().children.str.ns.listeners[0].function,_.noop)
     })
     it('A listerner should be fire properly',function(){
       var fired = false
@@ -32,9 +32,9 @@ describe("Bus Test",function(){
       busIns.on("fn1",listenner)
       busIns.on("fn2",{"alias":listenner})
       busIns.on("fn3",{name:"fn3","function":listenner})
-      assert.equal( busIns.events.children.str.fn1.functions[0].name, busIns.module()+".listenner")
-      assert.equal( busIns.events.children.str.fn2.functions[0].name, busIns.module()+".alias")
-      assert.equal( busIns.events.children.str.fn3.functions[0].name, busIns.module()+".fn3")
+      assert.equal( busIns.getEvents().children.str.fn1.listeners[0].name, busIns.module()+".listenner")
+      assert.equal( busIns.getEvents().children.str.fn2.listeners[0].name, busIns.module()+".alias")
+      assert.equal( busIns.getEvents().children.str.fn3.listeners[0].name, busIns.module()+".fn3")
     })
     it('Bus instance should be passed as "this" to listenner',function(){
       var outside
@@ -50,7 +50,7 @@ describe("Bus Test",function(){
     it('Multiple listenner with same namespace attach',function(){
       busIns.on("ml",_.noop)
       busIns.on("ml",_.noop)
-      assert.equal(busIns.events.children.str.ml.functions.length,2)
+      assert.equal(busIns.getEvents().children.str.ml.listeners.length,2)
     })
     it('Multyiple listenner fire',function(){
       var fired1=false,fired2=false
@@ -65,8 +65,10 @@ describe("Bus Test",function(){
       busIns.on('o',function l1(){fireStack.push('l1')})
       busIns.on('o',function l2(){fireStack.push('l2')},{before:'l1'})
       busIns.on('o',function l3(){fireStack.push('l3')},{first:true})
+      busIns.on('o',function l4(){fireStack.push('l4')},{last:true})
+      busIns.on('o',function l5(){fireStack.push('l5')})
       busIns.fire('o')
-      assert.equal(fireStack.toString(),'l3,l2,l1')
+      assert.equal(fireStack.toString(),'l3,l2,l1,l5,l4')
     })
   })
 
@@ -82,15 +84,15 @@ describe("Bus Test",function(){
       busIns.on('n1.n2.n3.n4',fire)
     })
     it('Auto create namespace structure',function(){
-      assert.equal( busIns.events.children.str.n1.functions.length,1)
-      assert.equal( busIns.events.children.str.n1.children.str.n2.functions.length,1)
-      assert.equal( busIns.events.children.str.n1.
+      assert.equal( busIns.getEvents().children.str.n1.listeners.length,1)
+      assert.equal( busIns.getEvents().children.str.n1.children.str.n2.listeners.length,1)
+      assert.equal( busIns.getEvents().children.str.n1.
         children.str.n2.
-        children.str.n3.functions.length,0)
-      assert.equal( busIns.events.children.str.n1.
+        children.str.n3.listeners.length,0)
+      assert.equal( busIns.getEvents().children.str.n1.
         children.str.n2.
         children.str.n3.
-        children.str.n4.functions.length,1)
+        children.str.n4.listeners.length,1)
     })
     it('Fire only one level namespce',function(){
       busIns.fire('n1.n2')

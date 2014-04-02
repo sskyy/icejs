@@ -9,14 +9,15 @@ exports.loadAll = function( opt ){
   modules = {}
   deps = {}
   promises = []
+  modulePath = (opt&&opt.path) || modulePath
 
   var bus = this,
-    modulePath = (opt&&opt.path) || modulePath,
     files = fs.readdirSync( modulePath)
+
 
   files.forEach(function( fileName ){
     if(/^\./.test(fileName)
-      || (opt.modules&&opt.modules.indexOf(fileName) == -1) ) return
+      || (opt&&opt.modules&&opt.modules.indexOf(fileName) == -1) ) return
 
     modules[fileName] = require( modulePath+fileName )
   })
@@ -42,27 +43,41 @@ exports.loadAll = function( opt ){
   })
 
   //call onStart if any module still have work to do
-  _.each(modules,function(m,name){
+
+  var res = Object.keys(modules).every(function(name){
+    var m = modules[name]
     if( m.info.onStart ){
-      console.log('call onStart for',name)
       var q = m.info.onStart.apply( bus, m.info.deps ? m.info.deps.map(function(name){
         return  modules[name]
       }):[])
-      if( Q.isPromise( q) )
+
+      if( Q.isPromise( q) ){
         promises.push(q)
+      }else if( q===false){
+        return false
+      }
     }
+    return true
   })
 
-  if( promises.length){
-    Q.allSettled( promises).spread(function(){
+  if( !res ) return res
 
-      Array.prototype.slice.call( arguments).forEach( function(d){
-        if( d.state == 'rejected' && d.reason[0] == true )
-          throw new Error('fatal error on start,module:'+d.reason[1])
+  if( promises.length){
+    var q=Q.defer()
+    Q.allSettled( promises).spread(function(){
+      var res = Array.prototype.slice.call( arguments).every( function(d){
+        if( d.state == 'rejected' ){
+          q.reject()
+          return false
+        }
+        return true
       })
+      if( res ) q.resolve()
     }).done()
+    return q.promise
   }
 
+  return true
 }
 
 exports.getLoadedModules = function(){

@@ -23,7 +23,7 @@ exports.info = {
     d.resolve()
     return d.promise
   },
-  deps : ['doNotExist']
+  deps : []
 }
 
 function nothing2log(){

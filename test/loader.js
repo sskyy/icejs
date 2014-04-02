@@ -1,11 +1,12 @@
 var bus = require('../core/bus.js'),
   loader = require('../core/loader.js'),
   fs = require('fs'),
+  Q = require('q'),
   _ = require('lodash'),
   path = require('path'),
   assert = require('assert')
 
-describe("Bus Test",function(){
+describe("Loader Test",function(){
   var busIns,
     modulePath = path.join(__dirname,'./test-modules/')
 
@@ -40,6 +41,27 @@ describe("Bus Test",function(){
       loader.loadAll.call(busIns,{path:modulePath})
       var modules = loader.getLoadedModules()
       assert.equal( modules['test-module2'].isUpModuleLoaded(),true)
+    })
+  })
+  describe('Hook onStart test',function(){
+    it('System should halt if any onStart function reture false',function(){
+      var isOk = loader.loadAll.call(busIns,
+          {path:modulePath,modules:['test-module1','test-module4']})
+
+      assert.equal( isOk, false)
+    })
+    it('System should halt if promise reject from onStart',function(done){
+
+      var re =loader.loadAll.call(busIns,{
+        path:modulePath,modules:['test-module1','test-module5']
+      })
+      assert.equal( Q.isPromise(re), true)
+      re.then(function(){
+        done(new Error('should reject'))
+      },function(){
+        done()
+      })
+
     })
   })
 })

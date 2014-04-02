@@ -10,6 +10,5 @@ exports.route = function(app){
       this.url.replace(/(^\/)?(\w+\/?\w+)+(\/$)?/,"$2")
     ].join('.'))
 
-    this.body = "hello"
   })
 }

@@ -49,7 +49,6 @@ exports.info = {
       bus = this
 
     //init all models
-    console.log("init all models:",modelDesc)
     modelDesc.forEach( function(m){
       orm.loadCollection(Waterline.Collection.extend(m));
     })
@@ -58,7 +57,6 @@ exports.info = {
     orm.initialize(config,function(err,models){
       if( err ) return d.reject([true,module.id])
 
-      console.log('models init done:',Object.keys(models.collections))
       bus.data('models',models.collections)
       bus.data('collections',models.connections)
       d.resolve()
