@@ -1,3 +1,4 @@
+var Q = require('q')
 /**
  * Create a bus instance.
  * Notice the 'events' object will be like this:
@@ -25,7 +26,6 @@
  * @param {object} opt - options
  */
 function bus(opt){
-  //TODO add option for auto 'before' and 'after' fire
   this.opt = defaults( opt||{},{
     nsSplit : '.', //namespace split
     varSign : ':', //variable sign
@@ -64,8 +64,14 @@ bus.prototype.data = function(name,data){
   return data ? (this._data[name]=data) : this._data[name]
 }
 
+bus.prototype.extendData = function( name,data){
+  console.log("mixing:", name, data, mix(this._data[name] || {}, data ))
+  this._data[name] = mix(this._data[name] || {}, data )
+
+}
+
 bus.prototype.getResult = function( eventOrg ){
-  return this._data.$$result[eventOrg]
+  return eventOrg ? this._data.$$result[eventOrg] : this._data.$$result
 }
 
 
@@ -195,10 +201,13 @@ bus.prototype.fire  = function( eventOrg, args,opt ){
 
   //fire
   //TODO deal with asynchrous result
+  var isPromise = false
   stack.forEach(function(b){
     b[1].listeners.forEach(function(f){
-      if( root._mute[f.name] == undefined && root.data('$$mute')[f.name] == undefined)
+      if( root._mute[f.name] == undefined && root.data('$$mute')[f.name] == undefined){
         results[f.name] = f.function.apply( root, b[0].concat(args===undefined?[]:args))
+        if(Q.isPromise(results[f.name])) isPromise = true
+      }
     })
   })
 
@@ -206,11 +215,11 @@ bus.prototype.fire  = function( eventOrg, args,opt ){
   root.data('$$result',
       mix(root.data('$$result'),
           zipObject([eventOrg],[results])))
-  return results
+  return isPromise ? Q(values(results)).allSettled() : results
 }
 
 bus.prototype.standardListener = function( org,opt ){
-  var res = {"name" : this._module+'.',"function" : noop},
+  var res = {"name" : this._module+'.',"function" : noop,"module":this._module},
     root = this
   if( typeof org == 'function'){
     res.name += org.name
@@ -226,6 +235,10 @@ bus.prototype.standardListener = function( org,opt ){
     }
   }
   res = defaults( res, opt)
+  if( res.module !== this._module ){
+    res.vendor = this._module
+  }
+
   Array.prototype.forEach.call(['before','after'],function(i){
     if( res[i] && res[i].indexOf('.') == -1 )
       res[i] = root._module + '.' + res[i]
@@ -300,7 +313,7 @@ function values( obj ){
 
 function mix( target, obj, deep ){
   var arg = Array.prototype.slice.call(arguments)
-  target = arguments.length ==3 ? arg.shift() : {}
+  target = (arguments.length ==3 || typeof obj == 'object')? arg.shift() : {}
   obj = arg.shift()
   deep = arg.pop() || false
 
@@ -327,6 +340,15 @@ function mix( target, obj, deep ){
   return target
 }
 
+function values( obj ){
+  var r = []
+  for( var i in obj ){
+    if( obj.hasOwnProperty(i)){
+      r.push( obj[i])
+    }
+  }
+  return r
+}
 
 
 module.exports = bus

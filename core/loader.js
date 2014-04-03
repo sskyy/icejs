@@ -27,10 +27,11 @@ exports.loadAll = function( opt ){
 
     m.info.deps.forEach(function( depName){
       if( !modules[depName] )
-        throw new Error('depend module miss:'+depName)
+        throw new Error('depend module miss for %s: %s',name,depName)
 
+      bus.module(depName)
       modules[depName].info.onUpModuleLoad &&
-        modules[depName].info.onUpModuleLoad.call(bus,m)
+        modules[depName].info.onUpModuleLoad.call(bus,m,name)
     })
   })
 
@@ -45,6 +46,7 @@ exports.loadAll = function( opt ){
   //call onStart if any module still have work to do
 
   var res = Object.keys(modules).every(function(name){
+    bus.module( name)
     var m = modules[name]
     if( m.info.onStart ){
       var q = m.info.onStart.apply( bus, m.info.deps ? m.info.deps.map(function(name){
@@ -64,7 +66,7 @@ exports.loadAll = function( opt ){
 
   if( promises.length){
     var q=Q.defer()
-    Q.allSettled( promises).spread(function(){
+    Q( promises).allSettled().spread(function(){
       var res = Array.prototype.slice.call( arguments).every( function(d){
         if( d.state == 'rejected' ){
           q.reject()

@@ -55,14 +55,14 @@ function robotPut(lastName){
  */
 exports.info = {
   "logic" : {
-    "request.put.user" : userPut,
-    "request.get.user" : userGet,
-    "request.get.user/:userId" : userGet,
-    "request.delete.user/:userId"  : userDelete,
-    "request.post.user/:userId" : userPost,
-    "request.post.robot" : robotPut
+//    "request.put.user" : userPut,
+//    "request.get.user" : userGet,
+//    "request.get.user/:userId" : userGet,
+//    "request.delete.user/:userId"  : userDelete,
+//    "request.post.user/:userId" : userPost,
+//    "request.post.robot" : robotPut
   },
   "deps" : ['orm'],
   //will be read by module orm
-  "models" : require('./models'),
+  "models" : require('./models')
 }
