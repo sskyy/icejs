@@ -1,0 +1,79 @@
+<html>
+<head>
+    <script src="./js/snap.svg-min.js"></script>
+    <script src="./js/jquery-2.1.0.min.js"></script>
+    <script src="./js/jquery.simple-color.min.js"></script>
+    <link href="./css/simple-color.css" rel="stylesheet"/>
+    <style>
+        line{
+            stroke :rgb(99,99,99);
+            stroke-width :2
+        }
+        text{
+            line-height: 30px;
+            alignment-baseline: hanging;
+            font-size: 16px;
+        }
+        text.match{
+            stroke:#ccc;
+            stroke-width:1px;
+        }
+        text.args{
+            stroke:#ccc;
+            stroke-width:1px;
+        }
+        text.module-ref{
+            cursor: pointer;
+        }
+        svg{
+            margin-top: 20px;
+        }
+        .container{}
+
+        input[type=text]{
+            vertical-align: top;
+            width: 200px;
+            height: 30px;
+            line-height: 20px;
+        }
+        .btn{
+            color: #fff;
+            vertical-align: top;
+            display: inline-block;
+            height: 28px;
+            border: 1px solid #154c67;
+            background-color: #006ba1;
+            border-radius: 2px;
+            line-height: 30px;
+            padding: 0 5px;
+            margin-left: 5px;
+            cursor: pointer;
+        }
+        #moduleSwitches{
+            margin-top: 10px;;
+        }
+        .switch{
+            display: inline-block;
+            height: 30px;
+            margin-right: 20px;
+            line-height: 30px;
+            cursor: pointer;
+        }
+
+        body{
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>ICE Framework Dev Tool   V0.0.1</h1>
+    <input id="url"type="text" placeholder="url"><a class='btn' id="getDiagram">GET</a>
+    <div id="moduleSwitches"></div>
+</div>
+
+<svg id="diagram"></svg>
+<script src="./js/main.js"></script>
+
+</body>
+</html>

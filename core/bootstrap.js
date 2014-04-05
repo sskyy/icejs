@@ -7,6 +7,12 @@ module.exports = function(app,cb){
   //init bus
   var busIns = new bus
 
+  //for modules responsible for app
+  busIns.data("$$app",app)
+
+  //deal with request
+  request.route.call(busIns, app)
+
   //load modules and register listenners
   var loadRslt = loader.loadAll.call(busIns)
   if( Q.isPromise( loadRslt ) ) {
@@ -21,7 +27,6 @@ module.exports = function(app,cb){
     throw new Error('start failed caused by module onStart hook.')
   }
 
-  //deal with request
-  request.route.call(busIns, app)
+
   cb && cb()
 }

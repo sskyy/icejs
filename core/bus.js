@@ -35,8 +35,10 @@ function bus(opt){
   })
 
   this._mute = {}
+  this._data = {}
   this._events = {listeners:[],children:{"str":{},"reg":{}}}
   this.start()
+
 }
 
 bus.prototype.getEvents = function(){
@@ -47,9 +49,26 @@ bus.prototype.getEvents = function(){
  * reset runtime data
  */
 bus.prototype.start  = function(){
+  console.log("==============ATTENTION, BUS START!=================")
+  var root = this
   //runtime mute must be clear every time
-  this._data = {"$$result":{},"$$mute":{}}
-  this._module = 'global'
+  var runtimeKey = ["$$result","$$mute"]
+
+  for( var i in root._data ){
+    if( !/^\$\$/.test( i) ){
+      delete root._data[i]
+    }
+  }
+
+  //deal with special keys
+  runtimeKey.forEach(function(k){
+    root._data[k] = {}
+  })
+
+  root._module = 'global'
+  root.debug = true
+  root.debugStack = []
+  root.debugRef = root.debugStack
 }
 
 
@@ -65,7 +84,6 @@ bus.prototype.data = function(name,data){
 }
 
 bus.prototype.extendData = function( name,data){
-  console.log("mixing:", name, data, mix(this._data[name] || {}, data ))
   this._data[name] = mix(this._data[name] || {}, data )
 
 }
@@ -142,19 +160,23 @@ function getTargetStack( eventNs, stack ){
   var n
   while( n = eventNs.shift()){
     stack = stack.reduce(function( init, b){
-      var variables = b[0],
-        e = b[1]
+      var args = b.arguments,ns = b.namespace? b.namespace.split('.') : []
 
-      if( e.children.str[n] )
-        init.push([variables,e.children.str[n]])
+      if( b.children.str[n] )
+        init.push( mix({"arguments":args,"namespace": ns.concat(n).join('.')}, b.children.str[n] ) )
 
-      if( Object.keys(e.children.reg).length){
-        forEach( e.children.reg, function(child,regStr){
+      if( Object.keys(b.children.reg).length){
+        forEach( b.children.reg, function(child,regStr){
           var reg = new RegExp( regStr),
             matches = n.match(reg)
 
-          if( matches)
-            init.push([variables.concat(matches.slice(1)),e.children.reg[regStr]])
+          if( matches) {
+            init.push(
+              mix({
+                "arguments": args.concat(matches.slice(1)),
+                "namespace": ns.concat(regStr).join('.')
+              }, b.children.reg[regStr]))
+          }
         })
       }
       return init
@@ -169,10 +191,10 @@ function appendChildListeners(stack){
   while(childStack.length){
     childStack = childStack.reduce(function(i,b){
       return i.concat(
-        values(b[1].children.str)
-          .concat(values(b[1].children.reg))
+        values(b.children.str)
+          .concat(values(b.children.reg))
           .map(function(i){
-            return [b[0],i]
+            return mix({arguments: b.arguments},i)
           })
       )
     },[])
@@ -181,14 +203,23 @@ function appendChildListeners(stack){
   return stack
 }
 
+/**
+ *
+ * @param {string} eventOrg
+ * @param {array} args
+ * @param {object} opt
+ * @returns {mix} promise object or array of results returned by listeners
+ */
 bus.prototype.fire  = function( eventOrg, args,opt ){
-  var stack = [[[],this._events]],
+  console.log("FIRE: %s",eventOrg)
+  var stack = [ mix({arguments:[]},this._events)],
     eventNs = eventOrg.split( this.opt.nsSplit),
     root=this,
     results = [],
     stack,
     opt = opt ||{}
 
+  //runtime mute, will be clear when start
   root.addMute(opt.mute,{module:root.module(),name:arguments.callee.caller.name},root.data('$$mute'))
 
   if( eventOrg !== "" ){
@@ -199,18 +230,43 @@ bus.prototype.fire  = function( eventOrg, args,opt ){
     stack = appendChildListeners( stack)
   }
 
+  var currentRef
+  if( root.debug ){
+    root.debugRef.push({
+      "name":eventOrg,
+      "attached":mix([],stack.map(function(i){
+        var n = mix({},i,true)
+        n.listeners = n.listeners.map(function(l){
+          l.stack = []
+          return l
+        })
+        return n
+      }),true)})
+
+    currentRef = root.debugRef
+  }
+
   //fire
-  //TODO deal with asynchrous result
   var isPromise = false
-  stack.forEach(function(b){
-    b[1].listeners.forEach(function(f){
+
+  stack.forEach(function(b,i){
+    b.listeners.forEach(function(f,j){
+      //set debugRef back
+      if( root.debug&&root.debugRef !== currentRef ) root.debugRef = currentRef
+
       if( root._mute[f.name] == undefined && root.data('$$mute')[f.name] == undefined){
-        results[f.name] = f.function.apply( root, b[0].concat(args===undefined?[]:args))
+        if( root.debug ){
+          //set debugRef into the listener, as to record any fire event in the listener
+          root.debugRef = root.debugRef[root.debugRef.length-1].attached[i].listeners[j].stack
+        }
+
+        results[f.name] = f.function.apply( root, b.arguments.concat(args===undefined?[]:args))
         if(Q.isPromise(results[f.name])) isPromise = true
       }
     })
   })
 
+  if( root.debug&&root.debugRef !== currentRef ) root.debugRef = currentRef
 
   root.data('$$result',
       mix(root.data('$$result'),
@@ -222,12 +278,12 @@ bus.prototype.standardListener = function( org,opt ){
   var res = {"name" : this._module+'.',"function" : noop,"module":this._module},
     root = this
   if( typeof org == 'function'){
-    res.name += org.name
+    res.name += org.name || 'anonymous'
     res.function = org
   }else{
     if( Object.keys(org).length !==1 ){
-      res = mix(org)
-      res.name = this._module+"."+res.name
+      res = mix(res,org)
+      res.name = res.module+"."+(res.name|| 'anonymous')
     }else{
       var key = Object.keys(org).pop()
       res.name += key
@@ -332,7 +388,7 @@ function mix( target, obj, deep ){
         child = {}
       }
 
-      target[name] = clone(child,copy,deep)
+      target[name] = mix(child,copy,deep)
     } else if (copy !== void 0) {
       target[name] = copy
     }

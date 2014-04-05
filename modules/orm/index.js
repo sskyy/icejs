@@ -3,7 +3,6 @@ var _ = require('lodash'),
     Q = require('q');
 
 // Instantiate a new instance of the ORM
-console.log( JSON.stringify(Waterline))
 var orm = new Waterline;
 
 
@@ -62,21 +61,20 @@ exports.info = {
               case 'get' :
                 return function(id){
                   var d = Q.defer()
-                  root.data('models')[modelName].findOne({id:id},function(err, model){
+                  root.data('$$models')[modelName].findOne({id:id},function(err, model){
                     var res = {}
                     res[model.id] = model.toJSON()
                     root.extendData(modelName, res)
                     d.resolve( model.toJSON())
-                    console.log("find user", model.toJSON(), modelName,root.data(modelName))
+//                    console.log("find user", model.toJSON(), modelName,root.data(modelName))
                   })
                   return d.promise
                 }
                 break;
               case 'put' :
                 return function(attrs){
-                  console.log( "create",attrs)
                   var d = Q.defer()
-                  root.data('models')[modelName].create(attrs).done(function(err,model){
+                  root.data('$$models')[modelName].create(attrs).done(function(err,model){
                     var res = {}
                     res[model.id] = model.toJSON()
                     root.extendData(modelName, res)
@@ -87,12 +85,12 @@ exports.info = {
                 break;
               case 'post' :
                 return function(id,attrs){
-                  return root.data('models')[modelName].findOne(attrs)
+                  return root.data('$$models')[modelName].findOne(attrs)
                 }
                 break;
               case 'delete' :
                 return function(id){
-                  return root.data('models')[modelName].destroy({id:id})
+                  return root.data('$$models')[modelName].destroy({id:id})
                 }
                 break
             }
@@ -119,7 +117,7 @@ exports.info = {
     orm.initialize(config,function(err,models){
       if( err ) return d.reject([true,module.id])
 
-      bus.data('models',models.collections)
+      bus.data('$$models',models.collections)
       bus.data('collections',models.connections)
       d.resolve()
     })

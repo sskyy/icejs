@@ -21,11 +21,12 @@ exports.info = {
               if( act !== 'put'){
                 args = [].slice.call(arguments)
                 if( act === 'post'){
-                  args.push( bus.data('ctx').request.body )
+                  args.push( bus.data('$$ctx').request.body )
                 }
               }else{
-                args.push( bus.data('ctx').request.body )
+                args.push( bus.data('$$ctx').request.body )
               }
+//              console.log("fire for orm", name+'.'+act)
               return bus.fire.apply(bus,[name+'.'+act, args])
             }
           })
