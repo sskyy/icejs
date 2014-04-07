@@ -22,13 +22,11 @@ exports.loadAll = function( opt ){
     modules[fileName] = require( modulePath+fileName )
   })
 
-  console.log( Object.keys(modules).toString())
   _.each(modules,function(m,name){
     if( !m.info || !m.info.deps ) return
 
     m.info.deps.forEach(function( depName){
       if( !modules[depName] )
-        console.log( name, depName)
         throw new Error('depend module miss for '+name+','+depName)
 
       bus.module(depName)

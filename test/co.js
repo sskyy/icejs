@@ -13,6 +13,7 @@ co(function *(){
       //var = get('http://baidu.com');
       //var res = yield a;
       //console.log(res);
+      yield 333
       return "aaa"
     })
     console.log(res)
