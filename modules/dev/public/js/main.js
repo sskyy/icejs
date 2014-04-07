@@ -2,13 +2,13 @@
  * this is the main file
  */
 
-var CWIDTH = 9, // width of on character,
-  PADDING = 30,
+var PADDING = 30,
   FNHEIGHT = 30,
   TEXT_FIX = 10,
   THEIGHT=10,
   FILL = 'lightsteelblue',
-  moduleRef = {} //will collect the el ref for each module
+  moduleRef = {}, //will collect the el ref for each module
+  fnDescRef = {} //will collect description of function
 
 
 function createSVGElement( e,attr){
@@ -26,7 +26,7 @@ function createSVGText( text ){
 
 
 function createFnRect($t,attr){
-  var $g = createSVGElement('g'),
+  var $g = createSVGElement('g').attr('class','fnRect'),
     $r = createSVGElement('rect', $.extend({
       x:0,
       y:0,
@@ -57,7 +57,7 @@ function createListenersG( name, args, listeners ){
     lastHeight = 0
 
   listeners.forEach(function( l,i  ){
-    var $l = createListener( l )
+    var $l = createListener( l, name )
 
     if( $l.data('width') > maxWidth ) maxWidth = $l.data('width')
 
@@ -85,13 +85,11 @@ function createListenersG( name, args, listeners ){
   return $g
 }
 
-function createListener( listener ){
+function createListener( listener, namespace ){
   var $g = createSVGElement('g'),
     $attaches = createSVGElement('g'),
     $name = createSVGText(listener.vendor ? listener.name + '('+listener.vendor+')' : listener.name),
     fnWidth,$fn
-
-
 
   var width = 0,
     maxHeight = 0
@@ -111,13 +109,26 @@ function createListener( listener ){
   fnWidth = width>$name.data('width')+PADDING?width:$name.data('width')+PADDING
   $fn = createFnRect( $name,{width:fnWidth,height:FNHEIGHT}).appendTo($g)
 
+  //collect moduleRef
   if( !moduleRef[listener.module] ) moduleRef[listener.module] = []
   moduleRef[listener.module].push($fn)
   if( listener.vendor && !moduleRef[listener.vendor] ) moduleRef[listener.vendor] = []
   listener.vendor && moduleRef[listener.vendor].push($fn)
 
+  //collect fnDescRef
+  var fnId = getFnId(namespace, listener.name)
+  fnDescRef[fnId] = {node:$fn}
+
+  //store data for desc dialog
+  $fn.data('fnId',fnId)
+
+
   $g.data('width',fnWidth).data('height',FNHEIGHT+maxHeight)
   return $g
+}
+
+function getFnId( namespace, name ){
+  return [namespace, name].join('->')
 }
 
 function createAttach( attach ){
@@ -156,31 +167,49 @@ function createAttach( attach ){
   return $g
 }
 
+
+/**
+ * to init the diagram
+ */
 $(function(){
   var diagramGetSelector = '#getDiagram',
     urlSelector  = '#url',
+    methodSelector = '#method',
     diagramSelector = '#diagram',
     moduleSwitchSelector = '#moduleSwitches',
-    colorPickerSelector = '.colorPicker'
+    colorPickerSelector = '.colorPicker',
+    debugDataUrl = '/dev/data',
+    fnRectSelector = '.fnRect',
+    descDialogSelector = '#descDialog',
+    doneDialogSelector = '#doneDialog',
+    descInputSelector = '#descInput'
+
+  function getData(){
+    return {url :$(urlSelector).val()||'/user/1' ,method: $(methodSelector).val() }
+  }
 
   $(diagramGetSelector).click(function(){
-    getDiagram( $(urlSelector).val() )
+    getDiagram( getData() )
   })
   $(urlSelector).keyup(function(e){
     if(e.keyCode == 13){
-      getDiagram( $(urlSelector).val())
+      getDiagram( getData() )
     }
   })
 
-  function getDiagram(url) {
-    $.get( url, function (data) {
+  function getDiagram( args ) {
+    Snap(diagramSelector).clear()
+    $.ajax( {
+      url:debugDataUrl,
+      type : 'GET',
+      data:args,
+      success : function (data){
       var $svg = Snap(diagramSelector),
         $diagram = createListener({name: 'global', stack: data, module: 'global'})
 
-      $svg.append($diagram).attr('width', $diagram.data('width') + 400)
+      $svg.append($diagram).attr('width', $diagram.data('width') + 100)
       createModuleSwitch()
-    })
-
+    }})
   }
 
   //read global variable moduleRef
@@ -236,12 +265,46 @@ $(function(){
         })
       })(name)
     }
-
-
   }
 
-  getDiagram('/dev/data')
+
+//  console.log(Snap(diagramSelector).selectAll(fnRectSelector).length)
+  var fnId,$fn
+  Snap(diagramSelector).dblclick(function(e){
+    var $fnRect = closest( Snap(e.target), fnRectSelector )
+    if(  $fnRect !== undefined ){
+      fnId = $fnRect.data('fnId')
+      $fn = $fnRect
+    }
+
+    console.log("should show the modal")
+    $(descDialogSelector).modal('show')
+  })
+
+  $(doneDialogSelector).click(function(){
+    var d = $(descInputSelector).val()
+
+    //TODO send ajax request
+
+    $fn.select('text').node.innerHTML = d
+
+    $(descDialogSelector).modal('hide')
+  })
+  //initialize
+  getDiagram( getData())
 })
 
+
+
+function closest( $e, selector ){
+  var type = selector[0] == '#'?'id':'class',
+
+    $p = $e.parent()
+  if( $p.node.tagName == 'svg' ) return undefined
+
+  if( $p.attr(type) == selector.substr(1) ) return $p
+
+  return closest( $p, selector)
+}
 
 

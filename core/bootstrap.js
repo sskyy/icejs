@@ -17,7 +17,6 @@ module.exports = function(app,cb){
   var loadRslt = loader.loadAll.call(busIns)
   if( Q.isPromise( loadRslt ) ) {
     return loadRslt.then(function(){
-      request.route.call(busIns, app)
       cb && cb()
     },function(){
       throw new Error('start failed caused by module onStart hook.')

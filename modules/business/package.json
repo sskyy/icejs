@@ -1,7 +1,7 @@
 {
-  "name": "request",
+  "name": "business",
   "version": "0.0.1",
-  "description": "request for icejs",
+  "description": "sample business for icejs",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

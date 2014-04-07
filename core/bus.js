@@ -1,4 +1,5 @@
-var Q = require('q')
+var Q = require('when'),
+  _ = require('lodash')
 /**
  * Create a bus instance.
  * Notice the 'events' object will be like this:
@@ -38,7 +39,24 @@ function bus(opt){
   this._data = {}
   this._events = {listeners:[],children:{"str":{},"reg":{}}}
   this.start()
+}
 
+bus.prototype.clone = function(){
+  var root = this,
+    newBus = new bus
+  //clone all private data
+  forEach(['_mute','_data','_events'],function(e){
+    newBus[e] = _.cloneDeep(root[e],function(e){
+      return  typeof e == 'function' ? e : undefined
+    })
+  })
+  //clone all system runtime data
+  forEach(root._data,function(e,i){
+    if( /^\$\$/.test(i)){
+      newBus._data[i] = _.clone(e)
+    }
+  })
+  return newBus
 }
 
 bus.prototype.getEvents = function(){
@@ -68,6 +86,7 @@ bus.prototype.start  = function(){
   root._module = 'global'
   root.debug = true
   root.debugStack = []
+  root.promiseStackRef = null
   root.debugRef = root.debugStack
 }
 
@@ -211,7 +230,6 @@ function appendChildListeners(stack){
  * @returns {mix} promise object or array of results returned by listeners
  */
 bus.prototype.fire  = function( eventOrg, args,opt ){
-  console.log("FIRE: %s",eventOrg)
   var stack = [ mix({arguments:[]},this._events)],
     eventNs = eventOrg.split( this.opt.nsSplit),
     root=this,
@@ -230,8 +248,16 @@ bus.prototype.fire  = function( eventOrg, args,opt ){
     stack = appendChildListeners( stack)
   }
 
-  var currentRef
+
+  var previousRef,currentRef
+
+  if( root.promiseStackRef ){
+    previousRef = root.debugRef
+    root.debugRef = root.promiseStackRef
+  }
+  currentRef = root.debugRef
   if( root.debug ){
+    //if fire in a promise callback, set the ref to right one
     root.debugRef.push({
       "name":eventOrg,
       "attached":mix([],stack.map(function(i){
@@ -242,8 +268,6 @@ bus.prototype.fire  = function( eventOrg, args,opt ){
         })
         return n
       }),true)})
-
-    currentRef = root.debugRef
   }
 
   //fire
@@ -261,17 +285,34 @@ bus.prototype.fire  = function( eventOrg, args,opt ){
         }
 
         results[f.name] = f.function.apply( root, b.arguments.concat(args===undefined?[]:args))
-        if(Q.isPromise(results[f.name])) isPromise = true
+
+        if(Q.isPromiseLike(results[f.name])){
+          isPromise = true
+          //when notified, reset the debugRef to right one
+          results[f.name].progress((function(){
+            var promiseStackRef = root.debugRef
+            return function(){
+              root.promiseStackRef = promiseStackRef
+            }
+          })())
+        }
       }
     })
   })
 
-  if( root.debug&&root.debugRef !== currentRef ) root.debugRef = currentRef
+  if( root.debug ){
+    if( root.promiseStackRef ){
+      root.promiseStackRef = null
+      root.debugRef = previousRef
+    }else{
+      root.debugRef = currentRef
+    }
+  }
 
   root.data('$$result',
       mix(root.data('$$result'),
           zipObject([eventOrg],[results])))
-  return isPromise ? Q(values(results)).allSettled() : results
+  return isPromise ? Q.all(values(results)) : results
 }
 
 bus.prototype.standardListener = function( org,opt ){
@@ -380,6 +421,8 @@ function mix( target, obj, deep ){
     if( !obj.hasOwnProperty(name)) continue
 
     copy = obj[name]
+
+    if( copy === target ) continue
 
     if ( deep && copy && typeof copy == 'object') {
       if ( Array.isArray(copy)) {
