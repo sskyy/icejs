@@ -72,7 +72,6 @@ bus.prototype.getEvents = function(){
  * reset runtime data
  */
 bus.prototype.start  = function(){
-  console.log("==============ATTENTION, BUS START!=================")
   var root = this
   //runtime mute must be clear every time
   var runtimeKey = ["$$result","$$mute"]

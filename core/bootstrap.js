@@ -1,9 +1,10 @@
 var bus = require('./bus'),
   loader = require('./loader'),
   request = require('./request'),
-  Q = require('q')
+  when = require('when'),
+  co = require('co')
 
-module.exports = function(app,cb){
+module.exports = co(function *(app,opt,cb){
   //init bus
   var busIns = new bus
 
@@ -14,18 +15,12 @@ module.exports = function(app,cb){
   request.route.call(busIns, app)
 
   //load modules and register listenners
-  var loadRslt = loader.loadAll.call(busIns)
-  if( Q.isPromise( loadRslt ) ) {
-    return loadRslt.then(function(){
-      cb && cb()
-    },function(){
-      throw new Error('start failed caused by module onStart hook.')
-    })
+  var loadRslt = yield loader.load.call(busIns,opt)
 
-  }else if( !loadRslt){
+
+  if( !loadRslt )
     throw new Error('start failed caused by module onStart hook.')
-  }
 
 
   cb && cb()
-}
+})

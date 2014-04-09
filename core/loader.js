@@ -1,25 +1,42 @@
 var fs = require('fs'),
   path = require('path'),
-  Q = require('q'),
+  Q = require('when'),
   _ = require('lodash'),
-  modulePath = path.join(__dirname,'../modules/'),
-  modules,deps,promises
+  modules,deps,promises,
+  co = require('co')
 
-exports.loadAll = function( opt ){
+/**
+ * option support:
+ *  modulePath : path to module
+ *  modules : specify certain modules to be load
+ *  sysModules : specify certain system modules to be load
+ *  sysModulePath : specify system module path
+ * @type {Function|*|exports}
+ */
+exports.load = co(function *( opt ){
   modules = {}
   deps = {}
   promises = []
-  modulePath = (opt&&opt.path) || modulePath
 
   var bus = this,
-    files = fs.readdirSync( modulePath)
+  moduleFiles = opt.modulePath ? fs.readdirSync( opt.modulePath ) : [],
+  sysModulePath = opt.sysModulePath || __dirname+'/../modules',
+  sysModuleFiles = fs.readdirSync( sysModulePath)
 
-
-  files.forEach(function( fileName ){
+  moduleFiles.forEach(function( fileName ){
     if(/^\./.test(fileName)
       || (opt&&opt.modules&&opt.modules.indexOf(fileName) == -1) ) return
 
-    modules[fileName] = require( modulePath+fileName )
+    modules[fileName] = require( path.join(opt.modulePath,fileName ))
+    modules[fileName].from = 'system'
+  })
+
+  sysModuleFiles.forEach(function( fileName ){
+    if(/^\./.test(fileName)
+      || (opt&&opt.modules&&opt.modules.indexOf(fileName) == -1) ) return
+
+    modules[fileName] = require( path.join(sysModulePath ,fileName ))
+    modules[fileName].from = 'user'
   })
 
   _.each(modules,function(m,name){
@@ -53,7 +70,7 @@ exports.loadAll = function( opt ){
         return  modules[name]
       }):[])
 
-      if( Q.isPromise( q) ){
+      if( Q.isPromiseLike( q) ){
         promises.push(q)
       }else if( q===false){
         return false
@@ -65,22 +82,16 @@ exports.loadAll = function( opt ){
   if( !res ) return res
 
   if( promises.length){
-    var q=Q.defer()
-    Q( promises).allSettled().spread(function(){
-      var res = Array.prototype.slice.call( arguments).every( function(d){
-        if( d.state == 'rejected' ){
-          q.reject()
-          return false
-        }
-        return true
-      })
-      if( res ) q.resolve()
-    }).done()
-    return q.promise
+    var promiseRlst = yield promises
+
+    return promiseRlst.every(function(p){
+      if( p === false) return false
+      return true
+    })
   }
 
   return true
-}
+})
 
 exports.getLoadedModules = function(){
   return modules

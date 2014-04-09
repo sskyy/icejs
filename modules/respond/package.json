@@ -1,10 +1,13 @@
 {
-  "name": "respond",
+  "name": "ice-respond",
   "version": "0.0.1",
   "description": "respond for icejs,using koa",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies" :{
+    "lodash" :"2.x"
   },
   "author": "jiamiu",
   "license": "MIT"

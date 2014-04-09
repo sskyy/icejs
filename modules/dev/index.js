@@ -25,11 +25,10 @@ exports.info= {
 
       bus.data('$$ctx',{body:'',query:{}})
       //restart the bus to empty extra data
-//      bus.start()
+      bus.start()
 
       var url = realCtx.request.query.url.replace(/(^\/)?(\w+\/?\w+)+(\/$)?/, "$2"),
         method = realCtx.request.query.method.toLowerCase(),
-//      var url = 'user/1',method='get',
         requestName = 'request.' + method + '.' +url,
         respondName = 'respond.' + method + '.' +url,
         requestRslt,respondRslt
@@ -43,14 +42,13 @@ exports.info= {
       }).then(function(){
         respondRslt = bus.fire( respondName)
 
-        Q(respondRslt).catch(function(){
-          console.log('err!!!!')
+        Q(respondRslt).catch(function(err){
+          console.log("err happen in dev:",drr)
         }).finally(function(){
           d.resolve()
         })
       })
 
-//      console.log("return global request")
 
       return [ d.promise,function(){
         bus.data('$$ctx',realCtx)

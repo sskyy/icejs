@@ -1,5 +1,4 @@
-var _ = require('lodash'),
-  Q = require('q')
+var _ = require('lodash')
 
 
 exports.info = {

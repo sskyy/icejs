@@ -1,10 +1,13 @@
 {
-  "name": "orm-request",
+  "name": "ice-orm-request",
   "version": "0.0.1",
   "description": "request for orm module in icejs",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies" : {
+    "lodash" : "2.x"
   },
   "author": "jiamiu",
   "license": "MIT"

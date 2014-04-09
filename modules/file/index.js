@@ -1,5 +1,4 @@
-var Q = require('q'),
-  send = require('koa-send')
+var send = require('koa-send')
 
 exports.info= {
   "onUpModuleLoad" : function(m, name){

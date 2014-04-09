@@ -1,6 +1,6 @@
 var _ = require('lodash'),
     Waterline = require('waterline'),
-    Q = require('q');
+    Q = require('when');
 
 // Instantiate a new instance of the ORM
 var orm = new Waterline;
@@ -62,11 +62,13 @@ exports.info = {
                 return function(id){
                   var d = Q.defer()
                   root.data('$$models')[modelName].findOne({id:id},function(err, model){
+                    if( err ) return d.reject(err)
+                    if( !model ) return d.resolve(model)
+
                     var res = {}
                     res[model.id] = model.toJSON()
                     root.extendData(modelName, res)
                     d.resolve( model.toJSON())
-//                    console.log("find user", model.toJSON(), modelName,root.data(modelName))
                   })
                   return d.promise
                 }
@@ -75,6 +77,8 @@ exports.info = {
                 return function(attrs){
                   var d = Q.defer()
                   root.data('$$models')[modelName].create(attrs).done(function(err,model){
+                    if(err) return d.reject(err)
+
                     var res = {}
                     res[model.id] = model.toJSON()
                     root.extendData(modelName, res)

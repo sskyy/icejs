@@ -2,7 +2,7 @@
   "name": "icejs",
   "version": "0.0.1",
   "description": "a framework focusing on business logic.",
-  "main": "app.js",
+  "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -15,5 +15,16 @@
   "bugs": {
     "url": "https://github.com/sskyy/icejs/issues"
   },
-  "homepage": "https://github.com/sskyy/icejs"
+  "homepage": "https://github.com/sskyy/icejs",
+  "dependencies" : {
+    "co" : "*",
+    "koa" : "*",
+    "koa-router" : "*",
+    "koa-body" : "*",
+    "when" : "*",
+    "lodash" : "*",
+    "thunkify" : "*",
+    "waterline" : "*",
+    "koa-send" : "*"
+  }
 }
