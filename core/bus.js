@@ -235,75 +235,84 @@ function appendChildListeners(stack){
  * @param {object} opt
  * @returns {mix} promise object or array of results returned by listeners
  */
-bus.prototype.fire  = function(){
-  var caller = arguments.callee.caller.name
+bus.prototype.fire  = function(eventOrg,args,opt) {
+  var caller = arguments.callee.caller.name,
+    root = this
 
-  return co(function *( eventOrg, args,opt ){
-    var stack = [ mix({arguments:[]},this._events)],
-      eventNs = eventOrg.split( this.opt.nsSplit),
-      root=this,
+  return co( function*(){
+
+    var eventNs = eventOrg.split(root.opt.nsSplit),
+      stack = [ mix({arguments: []}, root._events)],
       results = [],
-      stack,
-      opt = opt ||{},
+      opt = opt || {},
       currentRef,
-      args= args || []
+      args = args || []
 
 
     //runtime mute, will be clear when start
-    root.addMute(opt.mute,{module:root.module(),name:caller},root.data('$$mute'))
+    root.addMute(opt.mute, {module: root.module(), name: caller}, root.data('$$mute'))
 
-    if( eventOrg !== "" ){
-      stack = getTargetStack(eventNs,stack)
+    if (eventOrg !== "") {
+      stack = getTargetStack(eventNs, stack)
     }
 
-    if(opt.cas){
-      stack = appendChildListeners( stack)
+    if (opt.cas) {
+      stack = appendChildListeners(stack)
     }
 
     currentRef = root.debugRef
-    if( root.debug ){
+    if (root.debug) {
       //if fire in a promise callback, set the ref to right one
       root.debugRef.push({
-        "name":eventOrg,
-        "attached":mix([],stack.map(function(i){
-          var n = mix({},i,true)
-          n.listeners = n.listeners.map(function(l){
+        "name": eventOrg,
+        "attached": mix([], stack.map(function (i) {
+          var n = mix({}, i, true)
+          n.listeners = n.listeners.map(function (l) {
             l.stack = []
             return l
           })
           return n
-        }),true)})
+        }), true)})
     }
     //fire
-    stack.forEach(function(b,i){
-      b.listeners.forEach(co(function *(f,j){
+
+    for (var i in stack) {
+      for (var j in stack[i].listeners) {
+        var f = stack[i].listeners[j], res
         //set debugRef back
-        if( root.debug&&root.debugRef !== currentRef ) root.debugRef = currentRef
+        if (root.debug && root.debugRef !== currentRef) root.debugRef = currentRef
 
-        if( root._mute[f.name] == undefined && root.data('$$mute')[f.name] == undefined){
-          if( root.debug ){
+        if (root._mute[f.name] == undefined && root.data('$$mute')[f.name] == undefined) {
+          if (root.debug) {
             //set debugRef into the listener, as to record any fire event in the listener
-            root.debugRef = root.debugRef[root.debugRef.length-1].attached[i].listeners[j].stack
+            root.debugRef = root.debugRef[root.debugRef.length - 1].attached[i].listeners[j].stack
           }
-          var res = util.isGenerator(f.function) ? co(f.function).apply(root,b.arguments.concat(args))
-            : f.function.apply(root,b.arguments.concat(args))
 
-          if( util.isYieldable(res) ){
-            results[f.name] = yield res
-          }else{
-            results[f.name] = res
+          if (util.isGenerator(f.function)) {
+            res = yield f.function.apply(root, stack[i].arguments.concat(args))
+          } else {
+            res = f.function.apply(root, stack[i].arguments.concat(args))
+            if( util.isYieldable(res) ){
+              res = yield res
+            }
           }
+
+
+          results[f.name] = res
+
+
         }
-      }))
-    })
+      }
+    }
 
-    if( root.debug )  root.debugRef = currentRef
+    if (root.debug)  root.debugRef = currentRef
 
     root.data('$$result',
       mix(root.data('$$result'),
-        zipObject([eventOrg],[results])))
+        zipObject([eventOrg], [results])))
     return results
-  }).apply(this, arguments)
+
+  })
 }
 
 bus.prototype.standardListener = function( org,opt ){

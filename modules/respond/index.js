@@ -1,4 +1,6 @@
-var _ = require('lodash')
+var _ = require('lodash'),
+  util = require('../../core/util'),
+  co = require('co')
 
 
 exports.info = {
@@ -14,12 +16,18 @@ exports.info = {
       logic[requestName] = {
         first: true,
         name: requestFn.name,
-        "function": function () {
-          var bus = this,
-            requestRlst = requestFn.apply(bus, arguments)
+        module: name,
+        vendor: 'respond'
+      }
 
+      if( util.isGenerator(requestFn) ){
+        logic[requestName].function = function*(){
+
+          var bus = this,
+            requestRlst = yield requestFn.apply(bus,arguments)
 
           if (Array.isArray(requestRlst)) {
+            //magic here,later define respond function for event
             respondFn = requestRlst[1]
             return requestRlst[0]
           } else if (typeof requestRlst == 'function') {
@@ -27,15 +35,36 @@ exports.info = {
           } else {
             return requestRlst
           }
-        },
-        module: name,
-        vendor: 'respond'
+          return
+        }
+      }else{
+        logic[requestName].function = function () {
+          var bus = this,
+            requestRlst = requestFn.apply(bus, arguments)
+          if (Array.isArray(requestRlst)) {
+            //magic here,later define respond function for event
+            respondFn = requestRlst[1]
+            return requestRlst[0]
+          } else if (typeof requestRlst == 'function') {
+            respondFn = requestRlst
+          } else {
+            return requestRlst
+          }
+        }
       }
+
 
       logic[respondName] = {
         name : requestFn.name+"'s respond",
-        "function" : function(){
-          if (typeof respondFn == 'function') return respondFn.apply(this, arguments)
+        "function" : function *(){
+          if (typeof respondFn == 'function'){
+            if( util.isGenerator(respondFn)){
+              yield respondFn.apply(this,arguments)
+
+            }else{
+              return respondFn.apply(this, arguments)
+            }
+          }
         },
         module : name,
         vendor : 'respond'

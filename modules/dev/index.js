@@ -1,4 +1,4 @@
-var Q = require('when'),co = require('co')
+var Q = require('when'),co = require('co'),util = require('../../core/util')
 
 function thunkify(promise){
   var p = promise
@@ -19,41 +19,28 @@ exports.info= {
         this.data('$$ctx').body = this.getEvents()
       }
     },
-    "request.get.dev/data" : function(){
-      var bus = this,d = Q.defer(),
+    "request.get.dev/data" : function *getDevData(){
+      var bus = this,
         realCtx=bus.data('$$ctx')
 
       bus.data('$$ctx',{body:'',query:{}})
       //restart the bus to empty extra data
-      bus.start()
+//      bus.start()
 
-      var url = realCtx.request.query.url.replace(/(^\/)?(\w+\/?\w+)+(\/$)?/, "$2"),
-        method = realCtx.request.query.method.toLowerCase(),
+//      var url = realCtx.request.query.url.replace(/(^\/)?(\w+\/?\w+)+(\/$)?/, "$2"),
+//        method = realCtx.request.query.method.toLowerCase(),
+      var url = 'user/1',method = 'get',
         requestName = 'request.' + method + '.' +url,
         respondName = 'respond.' + method + '.' +url,
         requestRslt,respondRslt
 
-      //if you fire another events in asynchrous function
-      //you must notify the bus to make debug stack being
-      //right. A little bit ugly!
-      requestRslt = bus.fire(requestName)
-      Q(requestRslt).finally(function(){
-        d.notify()
-      }).then(function(){
-        respondRslt = bus.fire( respondName)
+      yield bus.fire( requestName)
+      yield bus.fire( respondName)
 
-        Q(respondRslt).catch(function(err){
-          console.log("err happen in dev:",drr)
-        }).finally(function(){
-          d.resolve()
-        })
-      })
-
-
-      return [ d.promise,function(){
+      return function *(){
         bus.data('$$ctx',realCtx)
         bus.data('$$ctx').body = bus.debugStack
-      }]
+      }
     }
   },
   file : {

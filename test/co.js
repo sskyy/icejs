@@ -8,14 +8,9 @@ var get = thunkify(request.get)
 var bus = require('../core/bus.js')
 
 
-co(function *(){
-    res = yield co(function *(){
-      //var = get('http://baidu.com');
-      //var res = yield a;
-      //console.log(res);
-      yield 333
-      return "aaa"
-    })
-    console.log(res)
+co(function *haha(){
+    var a=  function *(){return 1}
+    yield a.apply(this)
 
 })()
+

@@ -63,7 +63,7 @@ exports.info = {
                   var d = Q.defer()
                   root.data('$$models')[modelName].findOne({id:id},function(err, model){
                     if( err ) return d.reject(err)
-                    if( !model ) return d.resolve(model)
+                    if( !model ) return d.resolve(1)
 
                     var res = {}
                     res[model.id] = model.toJSON()

@@ -24,7 +24,7 @@ ice.prototype.run = function(){
   var root = this
   bootstrap(app,root._config,function(){
     app.listen(root._config.port);
-    console.log("listen on port: ",root._config.port)
+    console.log("icejs listen on port: ",root._config.port)
   })
 }
 

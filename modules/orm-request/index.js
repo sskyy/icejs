@@ -24,7 +24,7 @@ exports.info = {
               }else{
                 args.push( bus.data('$$ctx').request.body )
               }
-              return bus.fire.apply(bus,[name+'.'+act, args])
+              return bus.fire(name+'.'+act, args)
             }
           })
 
