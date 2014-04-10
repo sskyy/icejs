@@ -237,18 +237,15 @@ function appendChildListeners(stack){
  */
 bus.prototype.fire  = function(eventOrg,args,opt) {
   var caller = arguments.callee.caller.name,
-    root = this
+    root = this,
+    args = args || [],
+    opt = opt || {},
+    eventNs = eventOrg.split(root.opt.nsSplit),
+    stack = [ mix({arguments: []}, root._events)],
+    results = [],
+    currentRef
 
   return co( function*(){
-
-    var eventNs = eventOrg.split(root.opt.nsSplit),
-      stack = [ mix({arguments: []}, root._events)],
-      results = [],
-      opt = opt || {},
-      currentRef,
-      args = args || []
-
-
     //runtime mute, will be clear when start
     root.addMute(opt.mute, {module: root.module(), name: caller}, root.data('$$mute'))
 
@@ -275,7 +272,6 @@ bus.prototype.fire  = function(eventOrg,args,opt) {
         }), true)})
     }
     //fire
-
     for (var i in stack) {
       for (var j in stack[i].listeners) {
         var f = stack[i].listeners[j], res
@@ -288,9 +284,12 @@ bus.prototype.fire  = function(eventOrg,args,opt) {
             root.debugRef = root.debugRef[root.debugRef.length - 1].attached[i].listeners[j].stack
           }
 
+//          console.log("CALL function %s, module %s, vendor %s", f.name,f.module,f.vendor,stack[i].arguments.concat(args).toString())
+//          console.log("arguments", stack[i].arguments, args)
           if (util.isGenerator(f.function)) {
             res = yield f.function.apply(root, stack[i].arguments.concat(args))
           } else {
+
             res = f.function.apply(root, stack[i].arguments.concat(args))
             if( util.isYieldable(res) ){
               res = yield res
