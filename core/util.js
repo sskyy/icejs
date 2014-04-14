@@ -22,5 +22,16 @@ function isYieldable(obj){
   return false
 }
 
+function enYieldabe(obj){
+  var output = {}
+  for( var i in obj ){
+    if( !obj.hasOwnProperty(i)) continue
+    if( isYieldable(obj[i])){
+      output[i] = obj[i]
+    }
+  }
+  return output
+}
+
 exports.isGenerator = isGenerator
 exports.isYieldable= isYieldable

@@ -89,9 +89,13 @@ bus.prototype.start  = function(){
 
   root._module = 'global'
   root.debug = true
-  root.debugStack = []
-  root.promiseStackRef = null
-  root.debugRef = root.debugStack
+
+  //used as debug information storage
+  root._debugStack = []
+  root.debugStackRef = root._debugStack
+
+  //default to global
+  root.debugListenerRef = {name : 'global'}
 }
 
 
@@ -103,7 +107,14 @@ bus.prototype.module = function( name ){
 }
 
 bus.prototype.data = function(name,data){
-  return data ? (this._data[name]=data) : this._data[name]
+  if( !name ) return this._data[name]
+
+  var dataObj = {}
+  dataObj[name] = data
+  this.debugListenerRef.data = _.assign( this.debugListenerRef.data, dataObj)
+
+  this._data[name]=data
+  return this
 }
 
 bus.prototype.extendData = function( name,data){
@@ -115,6 +126,9 @@ bus.prototype.getResult = function( eventOrg ){
   return eventOrg ? this._data.$$result[eventOrg] : this._data.$$result
 }
 
+bus.prototype.debugStack = function(){
+  return this._debugStack
+}
 
 /**
  * Attach a event to the bus
@@ -229,6 +243,17 @@ function appendChildListeners(stack){
 }
 
 /**
+ *  1. if you want to block the after listener,
+ * just register a generator as listener
+ *
+ *  2. if you just want to run code synchronous, use 'co'.
+ *
+ *  3. if you want to control the work flow afterward,
+ * return a signal object
+ *
+ *  4. if you want to run the listeners asynchronous registered
+ * to the same event, but make the fire function wait for your
+ * result, you can only use outside 'yield' to control the workflow.
  *
  * @param {string} eventOrg
  * @param {array} args
@@ -257,10 +282,10 @@ bus.prototype.fire  = function(eventOrg,args,opt) {
       stack = appendChildListeners(stack)
     }
 
-    currentRef = root.debugRef
+    currentRef = root.debugStackRef
     if (root.debug) {
       //if fire in a promise callback, set the ref to right one
-      root.debugRef.push({
+      root.debugStackRef.push({
         "name": eventOrg,
         "attached": mix([], stack.map(function (i) {
           var n = mix({}, i, true)
@@ -275,42 +300,49 @@ bus.prototype.fire  = function(eventOrg,args,opt) {
     for (var i in stack) {
       for (var j in stack[i].listeners) {
         var f = stack[i].listeners[j], res
-        //set debugRef back
-        if (root.debug && root.debugRef !== currentRef) root.debugRef = currentRef
+        //set debugStackRef back
+        if (root.debug && root.debugStackRef !== currentRef) root.debugStackRef = currentRef
 
         if (root._mute[f.name] == undefined && root.data('$$mute')[f.name] == undefined) {
-          if (root.debug) {
-            //set debugRef into the listener, as to record any fire event in the listener
-            root.debugRef = root.debugRef[root.debugRef.length - 1].attached[i].listeners[j].stack
-          }
-
 //          console.log("CALL function %s, module %s, vendor %s", f.name,f.module,f.vendor,stack[i].arguments.concat(args).toString())
 //          console.log("arguments", stack[i].arguments, args)
+          if( root.debug ){
+            root.debugListenerRef = root.debugStackRef[root.debugStackRef.length - 1].attached[i].listeners[j]
+            //set debugStackRef into the listener, as to record any fire event in the listener
+            root.debugStackRef = root.debugListenerRef.stack
+          }
+
           if (util.isGenerator(f.function)) {
             res = yield f.function.apply(root, stack[i].arguments.concat(args))
           } else {
-
             res = f.function.apply(root, stack[i].arguments.concat(args))
-            if( util.isYieldable(res) ){
-              res = yield res
-            }
+
+            //if the response is a yieldable object
+            //let the outside to handle
+//            if( util.isYieldable(res) ){
+//              res = yield res
+//            }
           }
 
-
+          //TODO you can return a signal
+          //TODO  register the result in this.data, in case of
+          // some function after may want to use.
           results[f.name] = res
 
-
+          if (root.debug) {
+            //set debugStackRef into the listener, as to record any fire event in current listener
+            root.debugListenerRef.result = res
+          }
         }
       }
     }
 
-    if (root.debug)  root.debugRef = currentRef
+    if (root.debug)  root.debugStackRef = currentRef
 
     root.data('$$result',
       mix(root.data('$$result'),
         zipObject([eventOrg], [results])))
     return results
-
   })
 }
 
