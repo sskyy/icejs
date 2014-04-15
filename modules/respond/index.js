@@ -21,7 +21,7 @@ exports.info = {
       }
 
       if( util.isGenerator(requestFn) ){
-        logic[requestName].function = function*(){
+        logic[requestName].function = function* requestDelegate(){
 
           var bus = this,
             requestRlst = yield requestFn.apply(bus,arguments)
@@ -38,7 +38,7 @@ exports.info = {
           return
         }
       }else{
-        logic[requestName].function = function () {
+        logic[requestName].function = function requestDelegate() {
           var bus = this,
             requestRlst = requestFn.apply(bus, arguments)
           if (Array.isArray(requestRlst)) {
@@ -56,7 +56,7 @@ exports.info = {
 
       logic[respondName] = {
         name : requestFn.name+"'s respond",
-        "function" : function *(){
+        "function" : function *respondDelegate(){
           if (typeof respondFn == 'function'){
             if( util.isGenerator(respondFn)){
               yield respondFn.apply(this,arguments)

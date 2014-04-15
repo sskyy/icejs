@@ -4,26 +4,25 @@
 
 var _=require('lodash')
 
-var a = {a:1,b:{c:3,d:4}};b = {a:2,b:{c:5},e:6}
 
-console.log( paste(a,b))
+function A(){}
+A.prototype.fn = function(){
 
-function paste(a,b){
-  var keys = Object.keys(a).concat( Object.keys(b)),
-    output = {}
-
-  keys.forEach(function(key){
-    if( b[key] === undefined ){
-      output[key]= a[key]
-    }else{
-      if( a[key] === undefined || typeof a[key] !== 'object' || typeof b[key] !== 'object'){
-        output[key] = b[key]
-      }else{
-        output[key] = paste( a[key],b[key])
-      }
-    }
-  })
-
-
-  return output
 }
+
+var a = new A
+a.pro = {}
+
+var b = _.cloneDeep(a)
+
+//console.log(b.fn,a.fn)
+
+var c = {}
+c.__proto__ = A.prototype
+_.assign( c,  a )
+
+c.own = {}
+
+console.log( c.fn === a.fn,a.pro === c.pro, c.own ===a.own)
+
+

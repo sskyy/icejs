@@ -4,7 +4,7 @@ var Q = require('when'),
   util = require('./util')
 /**
  * Create a bus instance.
- * Notice the 'events' object will be like this:
+ * Notice the structure of 'events' object will be like this:
  * {
  *  "{namespace}" : {
  *      "listeners" : [{
@@ -28,10 +28,7 @@ var Q = require('when'),
  * @constructor
  * @param {object} opt - options
  */
-
-
-
-function bus(opt){
+function bus(opt, debug){
   this.opt = defaults( opt||{},{
     nsSplit : '.', //namespace split
     varSign : ':', //variable sign
@@ -39,63 +36,100 @@ function bus(opt){
     mutRex : /^!/,
     tarRex : /^@/
   })
+  this._debug = debug && false
 
+  //variables start with `_` means private data, which can only be visit inside bus
   this._mute = {}
-  this._data = {}
+  //`$$result` and `$$mute` is for runtime use
+  this._data = {$$result : {},$$mute:{}}
   this._events = {listeners:[],children:{"str":{},"reg":{}}}
-  this.start()
+  this._module = 'global'
+
+  this._debugListener = {name : 'global',stack:[],module:'global'}
+  this._debugListenerRef = this._debugListener
+
 }
 
+bus.prototype.beginDebug = function(){
+  this._debug = true
+}
+
+bus.prototype.endDebug = function(){
+  this._debug = false
+}
+
+/**
+ * data key start with `$$` will be shared
+ * @returns {bus}
+ */
 bus.prototype.clone = function(){
   var root = this,
     newBus = new bus
   //clone all private data
-  forEach(['_mute','_data','_events'],function(e){
-    newBus[e] = _.cloneDeep(root[e],function(e){
-      return  typeof e == 'function' ? e : undefined
-    })
-  })
-  //clone all system runtime data
-  forEach(root._data,function(e,i){
-    if( /^\$\$/.test(i)){
-      newBus._data[i] = _.clone(e)
+  _.without(Object.keys(this),'_data').forEach(function( key ){
+    if( root.hasOwnProperty(key) ){
+      newBus[key] = _.cloneDeep(root[key])
     }
   })
+
+  newBus._data = _.transform( root._data,function(result, v ,k){
+    result[k] = /^\$\$/.test(k) ? v : _.cloneDeep(v)
+  })
+
+  //setup debug reference right
+  newBus._debugListenerRef = newBus._debugListener
+
   return newBus
+}
+
+/**
+ * this will return a lite object which have all the references of origin bus's properties.
+ */
+bus.prototype.cloneLite = function(){
+  var busLite = {}
+  busLite.__proto__ = bus.prototype
+//  _.assign( busLite, this )
+  for( var i in this ){
+    if( this.hasOwnProperty(i)){
+      busLite[i] = this[i]
+    }
+  }
+  return busLite
 }
 
 bus.prototype.getEvents = function(){
   return this._events
 }
 
+bus.prototype.startDebug = function(){
+
+}
+
 /**
- * reset runtime data
+ * basically you can use `clone` to get a new bus on every condition.
+ * this method was use to recollect the bus, use less memory
  */
-bus.prototype.start  = function(){
+bus.prototype.reset  = function(){
+  console.log("calling start")
   var root = this
-  //runtime mute must be clear every time
+  //runtime mute and result must be clear every time
   var runtimeKey = ["$$result","$$mute"]
 
+  //data of name started with `$$` will not be clear except for `$$result` and `$$mute`
   for( var i in root._data ){
     if( !/^\$\$/.test( i) ){
       delete root._data[i]
     }
   }
 
-  //deal with special keys
+  //deal with system runtime data
   runtimeKey.forEach(function(k){
     root._data[k] = {}
   })
 
-  root._module = 'global'
-  root.debug = true
 
-  //used as debug information storage
-  root._debugStack = []
-  root.debugStackRef = root._debugStack
-
-  //default to global
-  root.debugListenerRef = {name : 'global'}
+  //set reference back
+  root._debugListenerRef = root._debugListener
 }
 
 
@@ -106,28 +140,34 @@ bus.prototype.module = function( name ){
   return name ? (this._module=name) : this._module
 }
 
+//don't use it internally, because it will record in debug stack
 bus.prototype.data = function(name,data){
-  if( !name ) return this._data[name]
+  if( !data ) return this._data[name]
 
-  var dataObj = {}
-  dataObj[name] = data
-  this.debugListenerRef.data = _.assign( this.debugListenerRef.data, dataObj)
+  if( this._debug ){
+    if( !this._debugListenerRef.data )
+      this._debugListenerRef.data = {}
+
+    this._debugListenerRef.data[name] = data
+  }
+
 
   this._data[name]=data
   return this
 }
 
 bus.prototype.extendData = function( name,data){
-  this._data[name] = mix(this._data[name] || {}, data )
 
+  _.assign( this._data[name],  data )
+  return this
 }
 
 bus.prototype.getResult = function( eventOrg ){
   return eventOrg ? this._data.$$result[eventOrg] : this._data.$$result
 }
 
-bus.prototype.debugStack = function(){
-  return this._debugStack
+bus.prototype.debugInfo = function(){
+  return this._debugListener
 }
 
 /**
@@ -248,12 +288,10 @@ function appendChildListeners(stack){
  *
  *  2. if you just want to run code synchronous, use 'co'.
  *
- *  3. if you want to control the work flow afterward,
- * return a signal object
+ *  3. if you want to run listeners parallelism, but all ended before fire function end,
+ *  you can return a yieldable object.
  *
- *  4. if you want to run the listeners asynchronous registered
- * to the same event, but make the fire function wait for your
- * result, you can only use outside 'yield' to control the workflow.
+ *  4. if you want to run fire parallelism, use `yield [bus.fire('e1'),bus.fire('e2')]`
  *
  * @param {string} eventOrg
  * @param {array} args
@@ -261,18 +299,19 @@ function appendChildListeners(stack){
  * @returns {mix} promise object or array of results returned by listeners
  */
 bus.prototype.fire  = function(eventOrg,args,opt) {
-  var caller = arguments.callee.caller.name,
+  var caller = arguments.callee.caller,
     root = this,
     args = args || [],
     opt = opt || {},
     eventNs = eventOrg.split(root.opt.nsSplit),
     stack = [ mix({arguments: []}, root._events)],
     results = [],
+    yieldableResults = {},
     currentRef
 
   return co( function*(){
     //runtime mute, will be clear when start
-    root.addMute(opt.mute, {module: root.module(), name: caller}, root.data('$$mute'))
+    root.addMute(opt.mute, {module: root.module(), name: caller.name}, root._data.$$mute)
 
     if (eventOrg !== "") {
       stack = getTargetStack(eventNs, stack)
@@ -282,10 +321,11 @@ bus.prototype.fire  = function(eventOrg,args,opt) {
       stack = appendChildListeners(stack)
     }
 
-    currentRef = root.debugStackRef
-    if (root.debug) {
-      //if fire in a promise callback, set the ref to right one
-      root.debugStackRef.push({
+    if (root._debug) {//save current context
+      currentRef = root._debugListenerRef
+
+      //this may effect the original listener stack
+      root._debugListenerRef.stack.push({
         "name": eventOrg,
         "attached": mix([], stack.map(function (i) {
           var n = mix({}, i, true)
@@ -300,51 +340,59 @@ bus.prototype.fire  = function(eventOrg,args,opt) {
     for (var i in stack) {
       for (var j in stack[i].listeners) {
         var f = stack[i].listeners[j], res
-        //set debugStackRef back
-        if (root.debug && root.debugStackRef !== currentRef) root.debugStackRef = currentRef
+        //set debugListenerRef.stack back
+        if (root._debug && root._debugListenerRef !== currentRef) root._debugListenerRef = currentRef
 
-        if (root._mute[f.name] == undefined && root.data('$$mute')[f.name] == undefined) {
+        //if function not in register mute and run time mute
+        if (root._mute[f.name] == undefined && root._data.$$mute[f.name] == undefined) {
 //          console.log("CALL function %s, module %s, vendor %s", f.name,f.module,f.vendor,stack[i].arguments.concat(args).toString())
 //          console.log("arguments", stack[i].arguments, args)
-          if( root.debug ){
-            root.debugListenerRef = root.debugStackRef[root.debugStackRef.length - 1].attached[i].listeners[j]
-            //set debugStackRef into the listener, as to record any fire event in the listener
-            root.debugStackRef = root.debugListenerRef.stack
+          if( root._debug ){
+            //store current listener reference to record data set and return result
+            root._debugListenerRef = root._debugListenerRef.stack[root._debugListenerRef.stack.length - 1].attached[i].listeners[j]
           }
 
+          var busLite = root.cloneLite()
           if (util.isGenerator(f.function)) {
-            res = yield f.function.apply(root, stack[i].arguments.concat(args))
+            res = yield f.function.apply(busLite, stack[i].arguments.concat(args))
+//            res = yield f.function.apply(root, stack[i].arguments.concat(args))
           } else {
-            res = f.function.apply(root, stack[i].arguments.concat(args))
-
-            //if the response is a yieldable object
-            //let the outside to handle
-//            if( util.isYieldable(res) ){
-//              res = yield res
-//            }
+            res = f.function.apply(busLite, stack[i].arguments.concat(args))
+//            res = f.function.apply(root, stack[i].arguments.concat(args))
           }
 
-          //TODO you can return a signal
-          //TODO  register the result in this.data, in case of
-          // some function after may want to use.
-          results[f.name] = res
+          //if the response is a yieldable object
+          if( util.isYieldable(res) ){
+            yieldableResults[f.name] = res
+          }else{
+            //TODO you can return a signal
+            // some function after may want to use.
+            results[f.name] = res
+          }
 
-          if (root.debug) {
-            //set debugStackRef into the listener, as to record any fire event in current listener
-            root.debugListenerRef.result = res
+          if(root._debug) {
+            root._debugListenerRef.result = res
+            root._debugListenerRef = currentRef
           }
         }
       }
     }
 
-    if (root.debug)  root.debugStackRef = currentRef
+    if( Object.keys(yieldableResults).length ){
+      _.assign( results, yield yieldableResults )
+    }
 
-    root.data('$$result',
-      mix(root.data('$$result'),
-        zipObject([eventOrg], [results])))
+    if (root._debug){
+      root._debugListenerRef = currentRef
+    }
+
+//    root._data.$$result = mix(root.data('$$result'), zipObject([eventOrg], [results]))
+
     return results
   })
 }
+
+
 
 bus.prototype.standardListener = function( org,opt ){
   var res = {"name" : this._module+'.',"function" : noop,"module":this._module},

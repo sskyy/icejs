@@ -8,9 +8,10 @@ var get = thunkify(request.get)
 var bus = require('../core/bus.js')
 
 
-co(function *haha(){
-    var a=  function *(){return 1}
-    yield a.apply(this)
-
+var a = co(function *haha(){
+    return 111
 })()
+
+console.log( a )
+
 

@@ -205,7 +205,7 @@ $(function(){
       data:args,
       success : function (data){
       var $svg = Snap(diagramSelector),
-        $diagram = createListener({name: 'global', stack: data, module: 'global'})
+        $diagram = createListener(data)
 
       $svg.append($diagram).attr('width', $diagram.data('width') + 100)
       createModuleSwitch()
@@ -291,7 +291,9 @@ $(function(){
     $(descDialogSelector).modal('hide')
   })
   //initialize
-  getDiagram( getData())
+  setTimeout(function(){
+    getDiagram( getData())
+  },100)
 })
 
 

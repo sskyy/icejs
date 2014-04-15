@@ -91,7 +91,6 @@ exports.info = {
                 return function(id){
                   var d = Q.defer(),bus = this
                   bus.data('$$models')[modelName].findOne({id:id},function(err, model){
-//                    console.log("ORM promise done")
                     if( err ) return d.reject(err)
 
                     if( !model ) return d.resolve(1)
@@ -99,9 +98,10 @@ exports.info = {
                     var res = {}
                     res[model.id] = model.toJSON()
                     bus.extendData(modelName, res)
-//                    console.log( "ORM setting model data",bus._data[modelName])
+
                     d.resolve( model.toJSON())
                   })
+//                  d.resolve()
                   return d.promise
                 }
                 break;
@@ -251,7 +251,6 @@ exports.info = {
       if( err ) return d.reject([true,module.id])
 
       bus.data('$$models',models.collections)
-      bus.data('collections',models.connections)
       d.resolve()
     })
     return d.promise

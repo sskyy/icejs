@@ -30,75 +30,75 @@ describe("Bus Test.",function(){
 
 
   })
-
-  describe("Simple fire test.",function(){
-    //1. if you want to block the after listener,
-    //just register a generator as listener
-
-    //2. if you just want to run code synchronous, use 'co' and
-    //DON'T return 'yieldable' object
-
-    //3. if you want to control the work flow afterward,
-    //return a signal object
-
-    //4. if you want to run the listeners asynchronous registered
-    //to the same event, but make the fire function wait for your
-    //result, you can return a 'thunkable' object
-    it('Genarator listener may block listeners followed',function(done){
-      return co(function *(){
-        var outside = []
-        busIns.on("fn1",function *generator(){
-          var d = when.defer()
-          setTimeout(function(){
-            outside.push('generator')
-            d.resolve()
-          },500)
-          yield d.promise
-        })
-
-        busIns.on("fn1",function (){
-          outside.push('function')
-        })
-
-        yield busIns.fire('fn1')
-
-        setTimeout(function(){
-          if( outside.toString() == 'generator,function' ) return done()
-          console.log("outside" ,JSON.stringify(outside))
-          return done(new Error('disorder'))
-        },510)
-      })()
-    })
-
-    it('If listener return an promise, then the parent fire function will wait it end',function(done){
-      var outside = []
-      busIns.on('fn1',function first(){
-        outside.push('first')
-        var d = when.defer()
-        setTimeout(function(){
-          outside.push('firstR')
-          d.resolve()
-        },600)
-        return d.promise
-      })
-
-      busIns.on('fn1',function second(){
-        outside.push('second')
-        var d = when.defer()
-        setTimeout(function(){
-          outside.push('secondR')
-          d.resolve()
-        },500)
-        return d.promise
-      })
-      busIns.fire('fn1')()
-
-      setTimeout(function(){
-        if( outside.toString() == 'first,second,secondR,firstR') return done()
-        return done(new Error('disorder'))
-      },700)
-    })
-  })
+//
+//  describe("Simple fire test.",function(){
+//    //1. if you want to block the after listener,
+//    //just register a generator as listener
+//
+//    //2. if you just want to run code synchronous, use 'co' and
+//    //DON'T return 'yieldable' object
+//
+//    //3. if you want to control the work flow afterward,
+//    //return a signal object
+//
+//    //4. if you want to run the listeners asynchronous registered
+//    //to the same event, but make the fire function wait for your
+//    //result, you can return a 'thunkable' object
+//    it('Genarator listener may block listeners followed',function(done){
+//      return co(function *(){
+//        var outside = []
+//        busIns.on("fn1",function *generator(){
+//          var d = when.defer()
+//          setTimeout(function(){
+//            outside.push('generator')
+//            d.resolve()
+//          },500)
+//          yield d.promise
+//        })
+//
+//        busIns.on("fn1",function (){
+//          outside.push('function')
+//        })
+//
+//        yield busIns.fire('fn1')
+//
+//        setTimeout(function(){
+//          if( outside.toString() == 'generator,function' ) return done()
+//          console.log("outside" ,JSON.stringify(outside))
+//          return done(new Error('disorder'))
+//        },510)
+//      })()
+//    })
+//
+//    it('If listener return an promise, then the parent fire function will wait it end',function(done){
+//      var outside = []
+//      busIns.on('fn1',function first(){
+//        outside.push('first')
+//        var d = when.defer()
+//        setTimeout(function(){
+//          outside.push('firstR')
+//          d.resolve()
+//        },600)
+//        return d.promise
+//      })
+//
+//      busIns.on('fn1',function second(){
+//        outside.push('second')
+//        var d = when.defer()
+//        setTimeout(function(){
+//          outside.push('secondR')
+//          d.resolve()
+//        },500)
+//        return d.promise
+//      })
+//      busIns.fire('fn1')()
+//
+//      setTimeout(function(){
+//        if( outside.toString() == 'first,second,secondR,firstR') return done()
+//        return done(new Error('disorder'))
+//      },700)
+//    })
+//  })
 
   describe("Multiple attach test",function(){
     it('Multiple listener with same namespace attach',function(){
@@ -217,9 +217,109 @@ describe("Bus Test.",function(){
 
   describe("Test debugStack",function(){
     //TODO test debugStack is in right order
+    it('Listener registered in one event test',function(){
+      busIns.beginDebug()
+      var fns = [function fn1(){},function fn2(){}],e = 'e'
+
+      fns.forEach(function(fn){
+        busIns.on(e,fn)
+      })
+      busIns.fire(e)()
+      var debugStack = busIns.debugInfo().stack
+      assert.equal(debugStack.length, 1)
+      assert.equal(debugStack[0].name ,e)
+      assert.equal(debugStack[0].attached.length,1)
+      assert.equal(debugStack[0].attached[0].namespace,e)
+      assert.equal(debugStack[0].attached[0].listeners.length,fns.length)
+      fns.forEach(function(fn,i){
+        assert.equal(debugStack[0].attached[0].listeners[i].name,'global.'+fns[i].name)
+      })
+    })
+
+    it('Inside fire test',function(){
+      busIns.beginDebug()
+      var es = ['e1','e2','e3'],outside = []
+      busIns.on(es[0],function baseFn(){
+        var root = this
+        es.slice(1).forEach(function( e){
+          root.fire(e)()
+        })
+      })
+
+      es.slice(1).forEach(function( e){
+        busIns.on(e,function(){
+          outside.push(e)
+        })
+      })
+
+      busIns.fire(es[0])()
+
+      var debugStack = busIns.debugInfo().stack
+      assert.equal( debugStack.length,1)
+      assert.equal( debugStack[0].name,es[0])
+      assert.equal( debugStack[0].attached.length ,1)
+      assert.equal( debugStack[0].attached[0].listeners.length ,1)
+      assert.equal( debugStack[0].attached[0].listeners[0].name ,'global.baseFn')
+      assert.equal( debugStack[0].attached[0].listeners[0].stack.length ,es.length-1)
+      assert.equal( outside.toString(), es.slice(1).toString())
+    })
 
     //TODO test detail information like data set or return result is marked
+    it('Data set or return result should be record',function(){
+      busIns.beginDebug()
+      var Dataset = [{data:{m:1},result:2},{data:{d:3},result:'nothing'}],
+        fns = Dataset.map(function(d){
+          return function(){
+            var b = this
+            for( var name in d.data ){
+              b.data(name, d.data[name])
+            }
+            return d.result
+           }
+        }),
+        e = 'e'
 
+
+      fns.forEach(function(fn){
+        busIns.on(e,fn)
+      })
+
+      busIns.fire(e)()
+      var debugStack = busIns.debugInfo().stack
+      debugStack[0].attached[0].listeners.forEach(function( l,i ){
+        assert.equal( JSON.stringify(l.data), JSON.stringify(Dataset[i].data) )
+        assert.equal( l.result, Dataset[i].result)
+      })
+
+    })
+
+    //TODO test asynchronous fire, debugStack should still in right order
+    it('Asynchronous fire should still in right order',function testIt(done){
+      busIns.beginDebug()
+      co( function *generator(){
+        busIns.on('e1',function fn1(){
+          var d = when.defer(),root = this
+          setTimeout(function timeoutInner(){
+            root.fire('e3')()
+            d.resolve()
+          },500)
+          return d.promise
+        })
+
+        busIns.on('e2',function fn2(){})
+        busIns.on('e3',function fn3(){})
+
+        yield [busIns.fire('e1') , busIns.fire('e2')]
+//        yield busIns.fire('e1')
+//        yield busIns.fire('e2')
+
+        var debugStack = busIns.debugInfo().stack
+//        console.log( JSON.stringify( busIns.debugInfo()))
+        assert.equal( debugStack[0].attached[0].listeners[0].stack[0].name, 'e3' )
+        assert.equal( debugStack[0].attached[0].listeners[0].stack[0].attached[0].listeners[0].name, 'global.fn3' )
+        done()
+      })()
+    })
   })
 
 

@@ -2,7 +2,8 @@ var app = require('koa')(),
   body = require('koa-body'),
   _ = require('lodash'),
   path = require('path'),
-  bootstrap = require('./core/bootstrap')
+  bootstrap = require('./core/bootstrap'),
+  debug = require('debug')('http')
 
 require('koa-router')(app)
 app.use(body())
@@ -22,9 +23,11 @@ ice.prototype.config = function(opt){
 
 ice.prototype.run = function(){
   var root = this
+  debug('icejs bootstrap start')
   bootstrap(app,root._config,function(){
     app.listen(root._config.port);
     console.log("icejs listen on port: ",root._config.port)
+    debug('icejs bootstrap done')
   })
 }
 

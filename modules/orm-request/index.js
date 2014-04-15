@@ -27,7 +27,7 @@ exports.info = {
               }else if( act == 'list'||act=='search' ||act === 'post' ){
                 args.push( runtimeBus.data('$$ctx').request.query )
               }
-              return runtimeBus.fire(name+'.'+act, args)
+              runtimeBus.fire(name+'.'+act, args)()
             }
           })
 

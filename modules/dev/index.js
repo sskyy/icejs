@@ -24,6 +24,9 @@ exports.info= {
         realCtx=bus.data('$$ctx')
 
       bus.data('$$ctx',{body:'',query:{}})
+      bus.beginDebug()
+
+
       //restart the bus to empty extra data
 //      bus.start()
 
@@ -38,12 +41,38 @@ exports.info= {
       yield bus.fire( respondName)
 
       return function *(){
-        bus.data('$$ctx',realCtx)
-        bus.data('$$ctx').body = bus.debugStack
+        bus.endDebug()
+        var debugInfo = this.debugInfo()
+        isCyclic(debugInfo)
+        this.data('$$ctx',realCtx)
+        this.data('$$ctx').body = debugInfo
       }
     }
   },
   file : {
     '^\\/dev\\/' : __dirname+'/public'
   }
+}
+
+function isCyclic (obj) {
+  var seenObjects = [];
+
+  function detect (obj) {
+    if (typeof obj === 'object') {
+      if (seenObjects.indexOf(obj) !== -1) {
+        console.log("\nSEEN!!!!!\n",obj)
+        return true;
+      }
+      seenObjects.push(obj);
+      for (var key in obj) {
+        if (obj.hasOwnProperty(key) && detect(obj[key])) {
+          console.log("+++++++++++++++++++++\n",obj, '\n++++++++++++++++\n=======cycle at ' + key, '=============\n');
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  return detect(obj);
 }
